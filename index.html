@@ -446,7 +446,17 @@ let HANDS = [], H = null, STEPS = [], cur = 0, lastRendered = -1, timer = null;
 const opts = { equity:true, showCards:true, bb:false, color:true, hero:null, speed:1 };
 
 /* ================= PARSER ================= */
+// Some apps eat the "***" around section headers when a hand is copied ("FLOP [..]" instead of "*** FLOP *** [..]").
+function normalizeHH(text){
+  return text.split(/\r?\n/).map(l => {
+    const t = l.trim();
+    if(t.startsWith('***')) return l;
+    const m = t.match(/^\**\s*((?:(?:FIRST|SECOND|THIRD)\s+)?(?:FLOP|TURN|RIVER|SHOW\s?DOWN)|HOLE CARDS|SUMMARY)\b\s*\**\s*(.*)$/);
+    return m ? `*** ${m[1]} ***${m[2] ? ' ' + m[2] : ''}` : l;
+  }).join('\n');
+}
 function parseHand(text){
+  text = normalizeHH(text);
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if(!lines.length) throw new Error('Empty hand history.');
   const h = { raw:text, site:'', id:'', game:'', stakesStr:'', date:'', table:'', maxSeats:0, button:null, cur:'',
