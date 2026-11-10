@@ -331,10 +331,9 @@ body.is-empty .log-empty{display:block}
   <div class="box">
     <h2>Share hand as a link</h2>
     <p id="shareWhat"></p>
-    <label class="chk"><input type="checkbox" id="shareStep"> <span id="shareStepLbl">Start from the current step</span></label>
     <div class="linkrow"><input id="shareUrl" readonly value="Creating link…"><button class="btn primary" id="bCopy">Copy</button></div>
     <div class="ok" id="shareOk"></div>
-    <div class="note" id="shareNote">The link opens this replayer straight to this hand. Anyone can open it – no account needed. The hand history travels inside the link and is never uploaded anywhere.</div>
+    <div class="note" id="shareNote">The link opens this replayer straight to this hand. Anyone with the link can open it – no account needed.</div>
     <div class="actions"><button class="btn" id="bShareClose">Close</button></div>
   </div>
 </div>
@@ -431,7 +430,7 @@ onmessage = ev => {
 // SHORT LINKS: paste your Cloudflare Worker address between the quotes,
 // e.g. 'https://hand-replayer.yourname.workers.dev'
 // Leave empty to use long links (the whole hand inside the link).
-   const SHORT_API = 'https://hand-replayer.lypsybotti.workers.dev';
+const SHORT_API = 'https://hand-replayer.lypsybotti.workers.dev';
 // ============================================================
 
 const SUIT = {s:'♠',h:'♥',d:'♦',c:'♣'};
@@ -1077,7 +1076,7 @@ async function makeShareName(h){
 let shareName = '';
 function shareLink(){
   const sep = /^(b-|c|s-)/.test(shareName) ? '~s' : '-s';
-  const step = $('#shareStep').checked && cur > 0 ? sep + (cur + 1) : '';
+  const step = '';
   return BASE_URL + '#' + shareName + step;
 }
 function refreshShare(){
@@ -1091,15 +1090,13 @@ $('#btnShare').onclick = async () => {
   $('#shareModal').classList.add('open');
   $('#shareOk').textContent = '';
   $('#shareWhat').innerHTML = `Hand <b>#${esc(H.id)}</b> · ${esc(H.game)} · ${esc(H.stakesStr)}`;
-  $('#shareStepLbl').textContent = `Start from the current step (${cur + 1}/${STEPS.length})`;
-  $('#shareStep').checked = cur > 0 && cur < STEPS.length - 1;
   shareName = '';
   $('#shareUrl').value = 'Creating link…';
   shareName = await makeShareName(H);
   refreshShare();
+  $('#shareNote').textContent = 'The link opens this replayer straight to this hand. Anyone with the link can open it – no account needed. ' + (shareName.startsWith('s-') ? 'The hand history is stored on the short-link service; only people with the link can see it.' : 'The whole hand history travels inside the link itself.');
   $('#shareOk').textContent = shareName.startsWith('s-') ? `Short link created (${shareLink().length} characters).` : shortFailed ? `Short-link service didn't answer, so this is a long link (${shareLink().length} characters) – it works just the same.` : `Link created (${shareLink().length} characters) – the whole hand is packed into the link, so anyone can open it.`;
 };
-$('#shareStep').onchange = refreshShare;
 let toastT;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
 async function copyText(text){
@@ -1129,7 +1126,12 @@ async function openFromHash(){
   if(ms){
     $('#loading').classList.add('open');
     try{
-      if(!shortApi()) throw new Error('This replayer has no short-link service set up.');
+      if(!shortApi()){
+        // Probably an old cached copy of this page: reload once, bypassing the cache
+        let retried = false; try{ retried = sessionStorage.getItem('hr-reload') === raw; sessionStorage.setItem('hr-reload', raw); }catch(_){ retried = true; }
+        if(!retried && !/[?&]r=/.test(location.search)){ location.replace(location.pathname + '?r=' + Date.now() + location.hash); return false; }
+        throw new Error('This replayer has no short-link service set up.');
+      }
       const res = await withTimeout(fetch(shortApi() + '/' + ms[1]), 10000);
       if(res.status === 404) throw new Error('Shared hand not found.');
       if(!res.ok) throw new Error('Could not load the shared hand.');
